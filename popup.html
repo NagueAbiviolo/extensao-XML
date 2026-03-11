@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>XML Form Filler</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>📄 XML Form Filler</h1>
+      <p class="subtitle">
+        Carregue um XML para preencher formulários automaticamente
+      </p>
+
+      <div class="upload-area" id="uploadArea">
+        <span class="upload-icon">📁</span>
+        <p>Arraste um XML aqui ou clique para selecionar</p>
+        <input type="file" id="fileInput" accept=".xml" hidden />
+      </div>
+
+      <div id="fileInfo" class="file-info hidden">
+        <span class="file-name" id="fileName"></span>
+        <button id="btnRemove" class="btn-remove" title="Remover arquivo">
+          ✕
+        </button>
+      </div>
+
+      <div id="preview" class="preview hidden">
+        <h3>Dados encontrados: <span id="dataCount">0</span></h3>
+        <div id="dataList" class="data-list"></div>
+      </div>
+
+      <div id="resultArea" class="result-area hidden">
+        <h3>Resultado do preenchimento</h3>
+        <div id="resultList" class="result-list"></div>
+      </div>
+
+      <div class="actions">
+        <button id="btnFill" class="btn btn-primary" disabled>
+          Preencher Formulário
+        </button>
+        <button id="btnScan" class="btn btn-secondary">Escanear Campos</button>
+      </div>
+
+      <div id="status" class="status hidden"></div>
+    </div>
+
+    <script src="xml-parser.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>
