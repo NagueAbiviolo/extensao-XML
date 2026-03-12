@@ -17,8 +17,14 @@
     const btnFill = document.getElementById("btnFill");
     const btnScan = document.getElementById("btnScan");
     const status = document.getElementById("status");
+    const groupSelector = document.getElementById("groupSelector");
+    const groupCount = document.getElementById("groupCount");
+    const groupList = document.getElementById("groupList");
+    const groupPreview = document.getElementById("groupPreview");
+    const groupDataList = document.getElementById("groupDataList");
 
     let parsedData = null;
+    let selectedGroupIndex = -1;
 
     // ─── Upload ───
 
@@ -50,9 +56,11 @@
 
     btnRemove.addEventListener("click", () => {
         parsedData = null;
+        selectedGroupIndex = -1;
         fileInput.value = "";
         fileInfo.classList.add("hidden");
         preview.classList.add("hidden");
+        groupSelector.classList.add("hidden");
         resultArea.classList.add("hidden");
         uploadArea.classList.remove("hidden");
         btnFill.disabled = true;
@@ -68,9 +76,13 @@
 
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            const dataToSend = Object.assign({}, parsedData.fields);
+            if (selectedGroupIndex >= 0 && parsedData.groups[selectedGroupIndex]) {
+                Object.assign(dataToSend, parsedData.groups[selectedGroupIndex].fields);
+            }
             const response = await chrome.tabs.sendMessage(tab.id, {
                 action: "fillForm",
-                data: parsedData,
+                data: dataToSend,
             });
 
             if (response && response.results) {
@@ -137,9 +149,11 @@
         reader.onload = (e) => {
             try {
                 parsedData = XmlParser.parse(e.target.result);
-                const keys = Object.keys(parsedData);
+                selectedGroupIndex = -1;
+                const keys = Object.keys(parsedData.fields);
+                const hasGroups = parsedData.groups.length > 0;
 
-                if (keys.length === 0) {
+                if (keys.length === 0 && !hasGroups) {
                     showStatus("Nenhum dado extraído do XML.", "error");
                     return;
                 }
@@ -149,27 +163,90 @@
                 fileInfo.classList.remove("hidden");
                 uploadArea.classList.add("hidden");
 
-                // Preview
-                dataCount.textContent = keys.length;
-                dataList.innerHTML = keys
-                    .map(
-                        (key) =>
-                            `<div class="data-item">
-                <span class="data-key">${escapeHtml(key)}</span>
-                <span class="data-value">${escapeHtml(truncate(parsedData[key], 60))}</span>
-              </div>`
-                    )
-                    .join("");
-                preview.classList.remove("hidden");
-                resultArea.classList.add("hidden");
+                // Preview dos campos base
+                if (keys.length > 0) {
+                    dataCount.textContent = keys.length;
+                    dataList.innerHTML = keys
+                        .map(
+                            (key) =>
+                                `<div class="data-item">
+                    <span class="data-key">${escapeHtml(key)}</span>
+                    <span class="data-value">${escapeHtml(truncate(parsedData.fields[key], 60))}</span>
+                  </div>`
+                        )
+                        .join("");
+                    preview.classList.remove("hidden");
+                } else {
+                    preview.classList.add("hidden");
+                }
 
+                // Mostra seletor de grupos se houver
+                if (hasGroups) {
+                    renderGroupSelector(parsedData.groups);
+                } else {
+                    groupSelector.classList.add("hidden");
+                }
+
+                resultArea.classList.add("hidden");
                 btnFill.disabled = false;
-                showStatus(`${keys.length} campos extraídos do XML.`, "success");
+
+                const parts = [];
+                if (keys.length > 0) {
+                    parts.push(`${keys.length} campos base extraídos`);
+                }
+                if (hasGroups) {
+                    parts.push(`${parsedData.groups.length} registros encontrados`);
+                }
+                showStatus(parts.join(" + ") + ".", "success");
             } catch (err) {
                 showStatus("Erro ao ler XML: " + err.message, "error");
             }
         };
         reader.readAsText(file);
+    }
+
+    function renderGroupSelector(groups) {
+        groupCount.textContent = groups.length;
+        groupList.innerHTML = groups
+            .map(
+                (g, i) =>
+                    `<div class="group-item ${i === selectedGroupIndex ? "selected" : ""}" data-index="${i}">
+                <span class="group-radio">${i === selectedGroupIndex ? "◉" : "○"}</span>
+                <span class="group-label">${escapeHtml(g.label)}</span>
+                <span class="group-field-count">${Object.keys(g.fields).length} campos</span>
+            </div>`
+            )
+            .join("");
+
+        groupList.querySelectorAll(".group-item").forEach((item) => {
+            item.addEventListener("click", () => {
+                const idx = parseInt(item.dataset.index);
+                if (selectedGroupIndex === idx) {
+                    selectedGroupIndex = -1;
+                    groupPreview.classList.add("hidden");
+                } else {
+                    selectedGroupIndex = idx;
+                    showGroupPreview(groups[idx]);
+                }
+                renderGroupSelector(groups);
+            });
+        });
+
+        groupSelector.classList.remove("hidden");
+    }
+
+    function showGroupPreview(group) {
+        const keys = Object.keys(group.fields);
+        groupDataList.innerHTML = keys
+            .map(
+                (key) =>
+                    `<div class="data-item">
+                <span class="data-key">${escapeHtml(key)}</span>
+                <span class="data-value">${escapeHtml(truncate(group.fields[key], 60))}</span>
+            </div>`
+            )
+            .join("");
+        groupPreview.classList.remove("hidden");
     }
 
     function showResults(results) {
