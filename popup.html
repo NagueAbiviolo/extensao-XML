@@ -3,12 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>XML Form Filler</title>
+    <title>Preenchedor de Formulários XML</title>
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
     <div class="container">
-      <h1>XML Form Filler</h1>
+      <h1>Preenchedor de Formulários XML</h1>
       <p class="subtitle">
         Carregue um XML para preencher formularios automaticamente
       </p>
@@ -21,7 +21,9 @@
 
       <div id="fileInfo" class="file-info hidden">
         <span class="file-name" id="fileName"></span>
-        <button id="btnRemove" class="btn-remove" title="Remover arquivo">✕</button>
+        <button id="btnRemove" class="btn-remove" title="Remover arquivo">
+          ✕
+        </button>
       </div>
 
       <div id="preview" class="preview hidden">
@@ -61,11 +63,23 @@
               <select id="processList">
                 <option value="">-- Selecione --</option>
               </select>
-              <button id="btnDeleteProcess" class="btn-sm btn-danger" title="Excluir">&#10005;</button>
+              <button
+                id="btnDeleteProcess"
+                class="btn-sm btn-danger"
+                title="Excluir"
+              >
+                &#10005;
+              </button>
             </div>
             <div class="process-save-bar">
-              <input type="text" id="processName" placeholder="Nome do processo" />
-              <button id="btnSaveProcess" class="btn-sm btn-save-process">Salvar</button>
+              <input
+                type="text"
+                id="processName"
+                placeholder="Nome do processo"
+              />
+              <button id="btnSaveProcess" class="btn-sm btn-save-process">
+                Salvar
+              </button>
             </div>
           </div>
 
@@ -79,33 +93,68 @@
               <div class="button-row-label">Salvar:</div>
               <div class="button-row-value">
                 <span id="saveBtnStatus" class="btn-status-icon"></span>
-                <span id="saveBtnText" class="btn-selected-text not-configured">Nao configurado</span>
+                <span id="saveBtnText" class="btn-selected-text not-configured"
+                  >Nao configurado</span
+                >
               </div>
               <button id="btnPickSave" class="btn-sm btn-pick">Apontar</button>
-              <button id="btnEditSave" class="btn-sm btn-edit hidden" title="Editar seletor">&#9998;</button>
+              <button
+                id="btnEditSave"
+                class="btn-sm btn-edit hidden"
+                title="Editar seletor"
+              >
+                &#9998;
+              </button>
             </div>
             <div id="saveSelectorManual" class="manual-selector hidden">
-              <input type="text" id="saveSelector" placeholder="Seletor CSS manual" />
-              <button id="btnCloseSaveManual" class="btn-sm btn-close-manual">OK</button>
+              <input
+                type="text"
+                id="saveSelector"
+                placeholder="Seletor CSS manual"
+              />
+              <button id="btnCloseSaveManual" class="btn-sm btn-close-manual">
+                OK
+              </button>
             </div>
 
             <div class="button-row">
               <div class="button-row-label">Novo:</div>
               <div class="button-row-value">
                 <span id="newBtnStatus" class="btn-status-icon"></span>
-                <span id="newBtnText" class="btn-selected-text not-configured">Nao configurado</span>
+                <span id="newBtnText" class="btn-selected-text not-configured"
+                  >Nao configurado</span
+                >
               </div>
               <button id="btnPickNew" class="btn-sm btn-pick">Apontar</button>
-              <button id="btnEditNew" class="btn-sm btn-edit hidden" title="Editar seletor">&#9998;</button>
+              <button
+                id="btnEditNew"
+                class="btn-sm btn-edit hidden"
+                title="Editar seletor"
+              >
+                &#9998;
+              </button>
             </div>
             <div id="newSelectorManual" class="manual-selector hidden">
-              <input type="text" id="newSelector" placeholder="Seletor CSS manual" />
-              <button id="btnCloseNewManual" class="btn-sm btn-close-manual">OK</button>
+              <input
+                type="text"
+                id="newSelector"
+                placeholder="Seletor CSS manual"
+              />
+              <button id="btnCloseNewManual" class="btn-sm btn-close-manual">
+                OK
+              </button>
             </div>
 
             <div class="config-field config-field-inline">
               <label for="saveDelay">Espera apos salvar (ms):</label>
-              <input type="number" id="saveDelay" value="2000" min="500" max="30000" step="500" />
+              <input
+                type="number"
+                id="saveDelay"
+                value="2000"
+                min="500"
+                max="30000"
+                step="500"
+              />
             </div>
           </div>
 
@@ -137,7 +186,9 @@
                 <div id="batchProgressFill" class="batch-progress-fill"></div>
               </div>
               <span id="batchProgressText" class="batch-progress-text"></span>
-              <button id="btnCancelBatch" class="btn-sm btn-danger">Parar</button>
+              <button id="btnCancelBatch" class="btn-sm btn-danger">
+                Parar
+              </button>
             </div>
           </div>
         </div>

@@ -1,5 +1,5 @@
 /**
- * Content script da extensão XML Form Filler.
+ * Content script da extensão Preenchedor de Formulários XML.
  *
  * Escaneia campos de formulário na página e faz matching
  * com dados vindos do XML carregado no popup.

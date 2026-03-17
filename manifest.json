@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "XML Form Filler",
+  "name": "Preenchedor de Formulários XML",
   "version": "1.0.0",
   "description": "Carrega um arquivo XML e preenche automaticamente campos de formulário correspondentes na página.",
   "permissions": ["activeTab", "scripting", "storage", "tabs"],

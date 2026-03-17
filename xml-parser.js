@@ -1,5 +1,5 @@
 /**
- * XML Parser para a extensão XML Form Filler.
+ * XML Parser para a extensão Preenchedor de Formulários XML.
  * Converte XML (genérico ou NF-e) em um mapa plano de chave-valor.
  */
 

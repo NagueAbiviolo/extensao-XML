@@ -1,5 +1,5 @@
 /**
- * Popup script da extensão XML Form Filler.
+ * Popup script da extensão Preenchedor de Formulários XML.
  * Gerencia upload de XML, preview dos dados e comunicação com o content script.
  */
 
@@ -433,7 +433,7 @@
         if (isRecording) {
             getActiveTab().then(tab => {
                 if (tab) chrome.tabs.sendMessage(tab.id, { action: "cancelRecording" });
-            }).catch(() => {});
+            }).catch(() => { });
         }
     });
 

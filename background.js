@@ -1,5 +1,5 @@
 /**
- * Background service worker da extensão XML Form Filler.
+ * Background service worker da extensão Preenchedor de Formulários XML.
  * Abre a popup em uma janela independente ao clicar no ícone.
  */
 
