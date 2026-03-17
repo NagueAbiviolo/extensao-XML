@@ -113,6 +113,7 @@
      */
     function collectFields() {
         const fields = [];
+        const seen = new Set();
         const selector = [
             "input[type='text']",
             "input[type='number']",
@@ -133,6 +134,26 @@
             const name = (field.name || "").toLowerCase();
             if (/^(csrf|_token|__request|viewstate|javax\.faces)/i.test(name)) return;
 
+            // Se este select esta dentro de um PrimeFaces SelectOneMenu, pula —
+            // sera coletado como picker abaixo
+            if (field.tagName === "SELECT" && field.closest(".ui-selectonemenu")) {
+                seen.add(field);
+                const container = field.closest(".ui-selectonemenu");
+                fields.push({
+                    element: field,
+                    container: container,
+                    id: field.id || container.id || "",
+                    name: field.name || "",
+                    type: "picker[selectonemenu]",
+                    placeholder: "",
+                    label: getPickerLabel(container),
+                    isSelect: false,
+                    isPicker: true,
+                    pickerType: "selectonemenu",
+                });
+                return;
+            }
+
             fields.push({
                 element: field,
                 id: field.id || "",
@@ -141,10 +162,91 @@
                 placeholder: field.placeholder || "",
                 label: getFieldLabel(field),
                 isSelect: field.tagName.toLowerCase() === "select",
+                isPicker: false,
+            });
+        });
+
+        // Coleta PrimeFaces SelectOneMenu que nao tenham <select> interno detectado
+        document.querySelectorAll(".ui-selectonemenu").forEach((container) => {
+            const innerSelect = container.querySelector("select");
+            if (innerSelect && seen.has(innerSelect)) return;
+
+            const id = (innerSelect && innerSelect.id) || container.id || "";
+            const name = (innerSelect && innerSelect.name) || "";
+            if (/^(csrf|_token|__request|viewstate|javax\.faces)/i.test(name)) return;
+
+            fields.push({
+                element: innerSelect || container,
+                container: container,
+                id: id,
+                name: name,
+                type: "picker[selectonemenu]",
+                placeholder: "",
+                label: getPickerLabel(container),
+                isSelect: false,
+                isPicker: true,
+                pickerType: "selectonemenu",
+            });
+        });
+
+        // Coleta PrimeFaces AutoComplete
+        document.querySelectorAll(".ui-autocomplete").forEach((container) => {
+            const input = container.querySelector("input.ui-autocomplete-input, input[type='text']");
+            if (!input || seen.has(input)) return;
+            seen.add(input);
+
+            fields.push({
+                element: input,
+                container: container,
+                id: input.id || container.id || "",
+                name: input.name || "",
+                type: "picker[autocomplete]",
+                placeholder: input.placeholder || "",
+                label: getPickerLabel(container),
+                isSelect: false,
+                isPicker: true,
+                pickerType: "autocomplete",
             });
         });
 
         return fields;
+    }
+
+    /**
+     * Retorna o label associado a um container de picker PrimeFaces.
+     */
+    function getPickerLabel(container) {
+        // 1. Label com for= apontando para algum elemento interno
+        const innerEl = container.querySelector("select, input");
+        if (innerEl && innerEl.id) {
+            const lbl = document.querySelector(`label[for="${CSS.escape(innerEl.id)}"]`);
+            if (lbl) return lbl.textContent.trim();
+        }
+
+        // 2. Label com for= apontando para o container
+        if (container.id) {
+            const lbl = document.querySelector(`label[for="${CSS.escape(container.id)}"]`);
+            if (lbl) return lbl.textContent.trim();
+            // PrimeFaces usa sufixos _label, _input no id
+            const baseId = container.id.replace(/_input$/, "");
+            const lbl2 = document.querySelector(`label[for="${CSS.escape(baseId)}"]`);
+            if (lbl2) return lbl2.textContent.trim();
+        }
+
+        // 3. Label no container pai
+        const parent = container.parentElement;
+        if (parent) {
+            const lbl = parent.querySelector("label, .ui-outputlabel");
+            if (lbl && !container.contains(lbl)) return lbl.textContent.trim();
+        }
+
+        // 4. Irmao anterior
+        const prev = container.previousElementSibling;
+        if (prev && (prev.tagName === "LABEL" || prev.classList.contains("ui-outputlabel"))) {
+            return prev.textContent.trim();
+        }
+
+        return "";
     }
 
     /**
@@ -454,6 +556,14 @@
     function fillField(field, value, xmlKey) {
         const el = field.element;
 
+        // Pickers customizados (PrimeFaces SelectOneMenu, AutoComplete, etc.)
+        if (field.isPicker) {
+            if (field.pickerType === "autocomplete") {
+                return fillAutoComplete(field, value);
+            }
+            return fillPicker(field, value);
+        }
+
         if (field.isSelect) {
             return fillSelect(el, value);
         }
@@ -537,19 +647,185 @@
             }
         }
 
-        // PrimeFaces: tenta widget
+        return false;
+    }
+
+    /**
+     * Preenche um PrimeFaces SelectOneMenu (picker customizado).
+     * Estrategia: widget API > simular clique no painel overlay.
+     */
+    function fillPicker(field, value) {
+        const container = field.container;
+        const selectEl = field.element.tagName === "SELECT" ? field.element : container.querySelector("select");
+        const normValue = normalize(value);
+
+        // 1. Tenta via PrimeFaces widget API
         try {
-            const containerId = selectEl.id.replace("_input", "");
             if (typeof PrimeFaces !== "undefined") {
-                const widget = PrimeFaces.getWidgetById(containerId);
+                const widgetId = (container.id || "").replace(/_input$/, "");
+                const widget = PrimeFaces.getWidgetById(widgetId) ||
+                    (selectEl && PrimeFaces.getWidgetById(selectEl.id.replace(/_input$/, "")));
                 if (widget) {
+                    // Busca a option correta no select escondido
+                    if (selectEl) {
+                        for (const option of selectEl.options) {
+                            const normText = normalize(option.text);
+                            const normOptVal = normalize(option.value);
+                            if (normText === normValue || normOptVal === normValue ||
+                                normText.includes(normValue) || normValue.includes(normText)) {
+                                widget.selectValue(option.value);
+                                highlightElement(container);
+                                return true;
+                            }
+                        }
+                    }
+                    // Fallback: tenta selectValue direto
                     widget.selectValue(value);
+                    highlightElement(container);
                     return true;
                 }
             }
         } catch (_) { }
 
+        // 2. Fallback: simula clique para abrir o painel e selecionar o item
+        try {
+            // Clica no trigger para abrir o dropdown
+            const trigger = container.querySelector(".ui-selectonemenu-trigger") ||
+                container.querySelector(".ui-selectonemenu-label");
+            if (trigger) {
+                trigger.click();
+
+                // Espera o painel abrir e busca o item correto
+                setTimeout(() => {
+                    // O painel pode ser um irmao do container ou estar no body
+                    const panelId = container.id + "_panel";
+                    let panel = document.getElementById(panelId);
+                    if (!panel) {
+                        // Busca paineis abertos
+                        panel = document.querySelector(".ui-selectonemenu-panel:not([style*='display: none'])") ||
+                            document.querySelector(".ui-selectonemenu-items-wrapper:not([style*='display: none'])");
+                    }
+
+                    if (panel) {
+                        const items = panel.querySelectorAll(".ui-selectonemenu-item, li");
+                        let bestItem = null;
+                        let bestScore = 0;
+
+                        items.forEach((item) => {
+                            const itemText = normalize(item.textContent);
+                            let score = 0;
+                            if (itemText === normValue) score = 100;
+                            else if (itemText.includes(normValue)) score = 70;
+                            else if (normValue.includes(itemText) && itemText.length > 2) score = 50;
+
+                            if (score > bestScore) {
+                                bestScore = score;
+                                bestItem = item;
+                            }
+                        });
+
+                        if (bestItem) {
+                            bestItem.click();
+                            highlightElement(container);
+                        } else {
+                            // Fecha o painel se nao encontrou
+                            trigger.click();
+                        }
+                    }
+                }, 150);
+
+                return true;
+            }
+        } catch (_) { }
+
+        // 3. Ultimo fallback: tenta preencher o select escondido diretamente
+        if (selectEl && selectEl.tagName === "SELECT") {
+            return fillSelect(selectEl, value);
+        }
+
         return false;
+    }
+
+    /**
+     * Preenche um PrimeFaces AutoComplete.
+     * Digita o valor no input e tenta selecionar a primeira sugestao.
+     */
+    function fillAutoComplete(field, value) {
+        const input = field.element;
+        const container = field.container;
+
+        // 1. Tenta via PrimeFaces widget API
+        try {
+            if (typeof PrimeFaces !== "undefined") {
+                const widgetId = (container.id || input.id || "").replace(/_input$/, "");
+                const widget = PrimeFaces.getWidgetById(widgetId);
+                if (widget && widget.search) {
+                    // Limpa e digita o valor
+                    input.value = "";
+                    const nativeSetter = Object.getOwnPropertyDescriptor(
+                        window.HTMLInputElement.prototype, "value"
+                    )?.set;
+                    if (nativeSetter) {
+                        nativeSetter.call(input, value);
+                    } else {
+                        input.value = value;
+                    }
+                    input.dispatchEvent(new Event("input", { bubbles: true }));
+
+                    // Dispara a busca do autocomplete
+                    widget.search(value);
+
+                    // Espera as sugestoes e seleciona a primeira
+                    setTimeout(() => {
+                        const panel = document.querySelector(".ui-autocomplete-panel:not([style*='display: none'])");
+                        if (panel) {
+                            const firstItem = panel.querySelector(".ui-autocomplete-item, li");
+                            if (firstItem) {
+                                firstItem.click();
+                                highlightElement(input);
+                                return;
+                            }
+                        }
+                        // Se nao abriu sugestoes, ao menos o valor ficou digitado
+                        input.dispatchEvent(new Event("change", { bubbles: true }));
+                        input.dispatchEvent(new Event("blur", { bubbles: true }));
+                        highlightElement(input);
+                    }, 800);
+
+                    return true;
+                }
+            }
+        } catch (_) { }
+
+        // 2. Fallback: simula digitacao e espera sugestoes
+        input.focus();
+        const nativeSetter = Object.getOwnPropertyDescriptor(
+            window.HTMLInputElement.prototype, "value"
+        )?.set;
+        if (nativeSetter) {
+            nativeSetter.call(input, value);
+        } else {
+            input.value = value;
+        }
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+        input.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: value.slice(-1) }));
+
+        setTimeout(() => {
+            const panel = document.querySelector(".ui-autocomplete-panel:not([style*='display: none'])");
+            if (panel) {
+                const firstItem = panel.querySelector(".ui-autocomplete-item, li");
+                if (firstItem) {
+                    firstItem.click();
+                    highlightElement(input);
+                    return;
+                }
+            }
+            input.dispatchEvent(new Event("blur", { bubbles: true }));
+            highlightElement(input);
+        }, 800);
+
+        return true;
     }
 
     function highlightElement(el) {
@@ -942,38 +1218,58 @@
 
         if (message.action === "fillForm") {
             const data = message.data;
-            const fields = collectFields();
-            const results = [];
+            const delay = message.fieldDelay || 400;
+            const entries = Object.entries(data).filter(
+                ([, v]) => v && typeof v !== "object"
+            );
 
-            for (const [xmlKey, xmlValue] of Object.entries(data)) {
-                // Ignora campos com valores vazios ou objetos complexos
-                if (!xmlValue || typeof xmlValue === "object") continue;
+            // Preenche campo a campo com delay (async, orquestrado por promise)
+            (async function () {
+                const fields = collectFields();
+                const results = [];
 
-                const matchedField = findMatchingField(xmlKey, fields);
-                if (matchedField) {
-                    const filled = fillField(matchedField, xmlValue, xmlKey);
-                    results.push({
-                        xmlKey,
-                        value: xmlValue,
-                        matched: filled,
-                        fieldId: matchedField.id,
-                        fieldName: matchedField.name,
-                        fieldLabel: matchedField.label,
-                    });
-                    // Remove campo usado para não preencher duas vezes o mesmo campo
-                    const idx = fields.indexOf(matchedField);
-                    if (idx > -1) fields.splice(idx, 1);
-                } else {
-                    results.push({
-                        xmlKey,
-                        value: xmlValue,
-                        matched: false,
-                    });
+                for (let i = 0; i < entries.length; i++) {
+                    const [xmlKey, xmlValue] = entries[i];
+
+                    // Re-coleta campos a cada iteracao pois novos podem ter surgido
+                    // apos preencher um campo anterior (campos condicionais)
+                    const currentFields = i > 0 ? collectFields() : fields;
+                    // Remove campos ja usados
+                    const usedIds = results.filter(r => r.matched).map(r => r._elRef);
+                    const availableFields = currentFields.filter(f => !usedIds.includes(f.element));
+
+                    const matchedField = findMatchingField(xmlKey, availableFields);
+                    if (matchedField) {
+                        const filled = fillField(matchedField, xmlValue, xmlKey);
+                        results.push({
+                            xmlKey,
+                            value: xmlValue,
+                            matched: filled,
+                            fieldId: matchedField.id,
+                            fieldName: matchedField.name,
+                            fieldLabel: matchedField.label,
+                            _elRef: matchedField.element,
+                        });
+                    } else {
+                        results.push({
+                            xmlKey,
+                            value: xmlValue,
+                            matched: false,
+                        });
+                    }
+
+                    // Delay entre campos para permitir que o formulario reaja
+                    if (i < entries.length - 1) {
+                        await new Promise(r => setTimeout(r, delay));
+                    }
                 }
-            }
 
-            sendResponse({ results });
-            return true;
+                // Remove referencia interna antes de enviar
+                const cleanResults = results.map(({ _elRef, ...rest }) => rest);
+                sendResponse({ results: cleanResults });
+            })();
+
+            return true; // indica que sendResponse sera chamado async
         }
 
         if (message.action === "scanFields") {
