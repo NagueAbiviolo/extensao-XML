@@ -329,3 +329,413 @@ h1 {
 .hidden {
   display: none !important;
 }
+
+/* Automation config */
+.automation-config {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+.config-toggle {
+  width: 100%;
+  padding: 10px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2c3e50;
+  text-align: left;
+  transition: background 0.15s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.config-toggle:hover {
+  background: #f8f9fa;
+}
+
+.config-toggle.open {
+  border-bottom: 1px solid #eee;
+}
+
+.config-toggle-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.config-toggle-arrow {
+  font-size: 10px;
+  color: #95a5a6;
+  transition: transform 0.2s;
+}
+
+.config-toggle.open .config-toggle-arrow {
+  transform: rotate(180deg);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.status-dot.gray { background: #bdc3c7; }
+.status-dot.green { background: #27ae60; }
+.status-dot.yellow { background: #f39c12; }
+
+.config-panel {
+  padding: 10px 12px;
+}
+
+.config-section {
+  margin-bottom: 4px;
+}
+
+.config-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #95a5a6;
+  margin-bottom: 6px;
+}
+
+/* Process management */
+.process-bar {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.process-bar select {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid #bdc3c7;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: #fff;
+}
+
+.process-bar select:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+.process-save-bar {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.process-save-bar input {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid #bdc3c7;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.process-save-bar input:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+.btn-sm {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.btn-save-process {
+  background: #27ae60;
+  color: #fff;
+}
+
+.btn-save-process:hover {
+  background: #219a52;
+}
+
+.btn-danger {
+  background: #e74c3c;
+  color: #fff;
+}
+
+.btn-danger:hover {
+  background: #c0392b;
+}
+
+.config-divider {
+  border: none;
+  border-top: 1px solid #eee;
+  margin: 8px 0;
+}
+
+.config-field {
+  margin-bottom: 8px;
+}
+
+.config-field:last-child {
+  margin-bottom: 0;
+}
+
+.config-field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #7f8c8d;
+  margin-bottom: 3px;
+}
+
+.config-field input {
+  padding: 6px 8px;
+  border: 1px solid #bdc3c7;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  transition: border-color 0.2s;
+}
+
+.config-field input:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+.config-field-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.config-field-inline label {
+  display: inline;
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
+.config-field-inline input {
+  width: 80px;
+}
+
+/* Button rows */
+.button-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.button-row:last-of-type {
+  border-bottom: none;
+}
+
+.button-row-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #2c3e50;
+  min-width: 45px;
+  flex-shrink: 0;
+}
+
+.button-row-value {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.btn-status-icon {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.btn-status-icon.configured::after {
+  content: "\2713";
+  color: #27ae60;
+  font-weight: bold;
+}
+
+.btn-selected-text {
+  font-size: 12px;
+  color: #2c3e50;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-selected-text.not-configured {
+  color: #95a5a6;
+  font-style: italic;
+}
+
+.btn-pick {
+  background: #8e44ad;
+  color: #fff;
+  font-size: 11px;
+  padding: 4px 10px;
+  flex-shrink: 0;
+}
+
+.btn-pick:hover {
+  background: #7d3c98;
+}
+
+.btn-pick.recording {
+  background: #e74c3c;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.btn-edit {
+  background: none;
+  border: 1px solid #bdc3c7;
+  color: #7f8c8d;
+  font-size: 13px;
+  padding: 3px 6px;
+  flex-shrink: 0;
+}
+
+.btn-edit:hover {
+  background: #f8f9fa;
+  border-color: #3498db;
+  color: #3498db;
+}
+
+.manual-selector {
+  display: flex;
+  gap: 4px;
+  padding: 4px 0 4px 51px;
+}
+
+.manual-selector input {
+  flex: 1;
+  padding: 4px 6px;
+  border: 1px solid #bdc3c7;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: monospace;
+}
+
+.manual-selector input:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+.btn-close-manual {
+  background: #ecf0f1;
+  color: #2c3e50;
+  border: 1px solid #bdc3c7;
+}
+
+/* Execution */
+.exec-description {
+  font-size: 11px;
+  color: #7f8c8d;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.btn-exec {
+  width: 100%;
+}
+
+.btn-exec:disabled {
+  background: #bdc3c7;
+  cursor: not-allowed;
+}
+
+.btn-success {
+  background: #27ae60;
+  color: #fff;
+}
+
+.btn-success:hover:not(:disabled) {
+  background: #219a52;
+}
+
+/* Batch processing */
+.batch-config {
+  margin-bottom: 8px;
+  padding: 8px 0;
+  border-top: 1px solid #eee;
+}
+
+.batch-range {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.batch-range label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #7f8c8d;
+  white-space: nowrap;
+}
+
+.batch-range select {
+  flex: 1;
+  padding: 4px 6px;
+  border: 1px solid #bdc3c7;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: #fff;
+}
+
+.batch-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 0;
+}
+
+.batch-progress-bar {
+  flex: 1;
+  height: 8px;
+  background: #ecf0f1;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.batch-progress-fill {
+  height: 100%;
+  background: #27ae60;
+  border-radius: 4px;
+  transition: width 0.3s;
+  width: 0%;
+}
+
+.batch-progress-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: #2c3e50;
+  white-space: nowrap;
+}

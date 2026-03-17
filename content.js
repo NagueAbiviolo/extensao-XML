@@ -13,6 +13,9 @@
  */
 
 (() => {
+    // ─── Estado do modo de gravacao ───
+    let recordingState = null;
+
     // ─── Aliases para matching ───
     // Mapeamento de termos comuns em XMLs brasileiros para possíveis ids/names de campos
     const ALIASES = {
@@ -560,9 +563,383 @@
         }, 2000);
     }
 
+    // ─── Deteccao automatica de botoes ───
+
+    const SAVE_TERMS = ["salvar", "gravar", "save", "confirmar", "enviar", "registrar"];
+    const NEW_TERMS = ["novo", "new", "adicionar", "incluir"];
+
+    /**
+     * Verifica se um elemento esta visivel na pagina.
+     */
+    function isVisible(el) {
+        if (!el) return false;
+        // Verifica display/visibility via computed style (mais confiavel que offsetParent)
+        const style = window.getComputedStyle(el);
+        if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") return false;
+        // Elementos com tamanho 0
+        if (el.offsetWidth === 0 && el.offsetHeight === 0 && style.position !== "fixed" && style.position !== "absolute") return false;
+        return true;
+    }
+
+    /**
+     * Extrai o texto significativo de um botao, tentando varias fontes.
+     */
+    function getButtonText(el) {
+        const texts = [];
+
+        // 1. Para inputs: value
+        if (el.tagName === "INPUT") {
+            if (el.value) texts.push(el.value.trim());
+        } else {
+            // 2. Texto direto do elemento (sem descer em filhos profundos)
+            // Tenta primeiro spans internos (PrimeFaces usa <span class="ui-button-text">)
+            const btnTextSpan = el.querySelector(".ui-button-text, .p-button-label, .p-button-text, .btn-text");
+            if (btnTextSpan) {
+                texts.push(btnTextSpan.textContent.trim());
+            }
+
+            // 3. Texto direto dos nos filhos de texto (nao recursivo em sub-elementos complexos)
+            const directText = Array.from(el.childNodes)
+                .filter(n => n.nodeType === Node.TEXT_NODE)
+                .map(n => n.textContent.trim())
+                .filter(t => t)
+                .join(" ");
+            if (directText) texts.push(directText);
+
+            // 4. textContent completo como fallback
+            if (el.textContent) texts.push(el.textContent.trim());
+        }
+
+        // 5. Atributos descritivos
+        if (el.title) texts.push(el.title.trim());
+        if (el.getAttribute("aria-label")) texts.push(el.getAttribute("aria-label").trim());
+        if (el.getAttribute("data-original-title")) texts.push(el.getAttribute("data-original-title").trim());
+        if (el.getAttribute("data-tooltip")) texts.push(el.getAttribute("data-tooltip").trim());
+
+        // Remove duplicatas e vazios
+        const seen = new Set();
+        return texts.filter(t => {
+            if (!t || seen.has(t)) return false;
+            seen.add(t);
+            return true;
+        });
+    }
+
+    /**
+     * Gera um seletor CSS unico para um elemento.
+     */
+    function getButtonIdentifier(el) {
+        // 1. ID
+        if (el.id) return `#${CSS.escape(el.id)}`;
+
+        // 2. name
+        if (el.name) {
+            const tag = el.tagName.toLowerCase();
+            return `${tag}[name="${CSS.escape(el.name)}"]`;
+        }
+
+        // 3. Classes significativas (ignora classes de estado do PrimeFaces/Bootstrap)
+        if (el.className && typeof el.className === "string") {
+            const ignorePattern = /^(ui-state|ui-corner|p-highlight|p-focus|active|hover|focus|disabled|show|fade|in|out|collapse)/;
+            const classes = el.className.trim().split(/\s+/).filter(c => c && !ignorePattern.test(c));
+            if (classes.length > 0) {
+                const selector = el.tagName.toLowerCase() + "." + classes.map(CSS.escape).join(".");
+                // Verifica se e unico
+                try {
+                    if (document.querySelectorAll(selector).length === 1) return selector;
+                } catch (_) { }
+                // Tenta com menos classes (mais especificas primeiro)
+                for (const cls of classes) {
+                    const s = el.tagName.toLowerCase() + "." + CSS.escape(cls);
+                    try {
+                        if (document.querySelectorAll(s).length === 1) return s;
+                    } catch (_) { }
+                }
+                return el.tagName.toLowerCase() + "." + classes.map(CSS.escape).join(".");
+            }
+        }
+
+        // 4. Fallback usando value ou posicao
+        if (el.tagName === "INPUT" && el.value) {
+            return `input[value="${CSS.escape(el.value)}"]`;
+        }
+
+        // 5. Nth-child como ultimo recurso
+        if (el.parentElement) {
+            const siblings = Array.from(el.parentElement.children).filter(c => c.tagName === el.tagName);
+            const idx = siblings.indexOf(el) + 1;
+            const parentId = el.parentElement.id ? `#${CSS.escape(el.parentElement.id)} > ` : "";
+            return `${parentId}${el.tagName.toLowerCase()}:nth-of-type(${idx})`;
+        }
+
+        return null;
+    }
+
+    /**
+     * Coleta todos os elementos clicaveis que possam ser botoes na pagina.
+     */
+    function collectButtons() {
+        const seen = new Set();
+        const buttons = [];
+
+        function addButton(el) {
+            if (seen.has(el) || !isVisible(el)) return;
+            seen.add(el);
+
+            const allTexts = getButtonText(el);
+            if (allTexts.length === 0) return;
+
+            buttons.push({
+                element: el,
+                texts: allTexts,
+                displayText: allTexts[0],
+                id: el.id || "",
+                selector: getButtonIdentifier(el),
+            });
+        }
+
+        // Busca ampla de elementos clicaveis
+        const selectors = [
+            "button",
+            'input[type="submit"]',
+            'input[type="button"]',
+            'input[type="image"]',
+            "[role='button']",
+            // PrimeFaces
+            ".ui-button",
+            ".ui-commandlink",
+            ".ui-menuitem-link",
+            // Bootstrap / generico
+            ".btn",
+            ".button",
+            // PrimeNG/PrimeReact
+            ".p-button",
+            // Links com onclick
+            "a[onclick]",
+            "a[href='#']",
+            "a[href='javascript:void(0)']",
+            // Divs/spans com onclick ou role
+            "div[onclick]",
+            "span[onclick]",
+        ].join(", ");
+
+        document.querySelectorAll(selectors).forEach(addButton);
+
+        // Busca adicional: links (<a>) que contenham texto curto (provavelmente botoes)
+        document.querySelectorAll("a").forEach((el) => {
+            if (seen.has(el)) return;
+            const text = (el.textContent || "").trim();
+            // Links com texto curto (< 30 chars) e com href que parece acao (nao URL externa)
+            const href = el.getAttribute("href") || "";
+            const isAction = !href || href === "#" || href.startsWith("javascript:") || href.includes("void");
+            const hasHandler = el.onclick || el.getAttribute("onclick");
+            const hasButtonStyle = /btn|button|command|action|link/i.test(el.className || "");
+            if (text.length > 0 && text.length < 30 && (isAction || hasHandler || hasButtonStyle)) {
+                addButton(el);
+            }
+        });
+
+        return buttons;
+    }
+
+    /**
+     * Busca botoes que correspondem a uma lista de termos.
+     * Retorna resultados ordenados por relevancia (match exato > parcial > atributo).
+     */
+    function findButtonByTerms(buttons, terms) {
+        const results = [];
+
+        for (const btn of buttons) {
+            let bestScore = 0;
+            let matchedText = btn.displayText;
+
+            for (const text of btn.texts) {
+                const normText = normalize(text);
+                for (const term of terms) {
+                    const normTerm = normalize(term);
+                    let score = 0;
+
+                    // Match exato (maior prioridade)
+                    if (normText === normTerm) {
+                        score = 100;
+                    }
+                    // Texto comeca com o termo
+                    else if (normText.startsWith(normTerm)) {
+                        score = 80;
+                    }
+                    // Texto contem o termo como palavra (com fronteira)
+                    else if (new RegExp("(^|[^a-z])" + normTerm + "([^a-z]|$)").test(normText)) {
+                        score = 70;
+                    }
+                    // Texto contem o termo (substring)
+                    else if (normText.includes(normTerm)) {
+                        score = 50;
+                    }
+
+                    if (score > bestScore) {
+                        bestScore = score;
+                        matchedText = text;
+                    }
+                }
+            }
+
+            if (bestScore > 0) {
+                results.push({
+                    text: matchedText.substring(0, 50),
+                    id: btn.id,
+                    selector: btn.selector,
+                    element: btn.element,
+                    score: bestScore,
+                });
+            }
+        }
+
+        // Ordena por score (mais relevante primeiro)
+        results.sort((a, b) => b.score - a.score);
+        return results;
+    }
+
+    // ─── Modo de gravacao (recording) ───
+
+    function createRecordingOverlay(type) {
+        const overlay = document.createElement("div");
+        overlay.id = "__xmlff_recording_overlay__";
+        overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;z-index:999999;pointer-events:none;background:rgba(0,0,0,0.05);";
+
+        const banner = document.createElement("div");
+        banner.style.cssText = "pointer-events:auto;position:absolute;top:0;left:0;right:0;background:rgba(142,68,173,0.95);color:#fff;padding:12px 16px;font-size:14px;font-family:sans-serif;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);";
+
+        const label = type === "save" ? "Salvar" : "Novo";
+        const bannerText = document.createElement("span");
+        bannerText.textContent = "Clique no botao \"" + label + "\" na pagina";
+
+        const cancelBtn = document.createElement("button");
+        cancelBtn.textContent = "Cancelar (ESC)";
+        cancelBtn.style.cssText = "background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;";
+
+        banner.appendChild(bannerText);
+        banner.appendChild(cancelBtn);
+        overlay.appendChild(banner);
+        document.body.appendChild(overlay);
+
+        return { overlay, cancelBtn };
+    }
+
+    function cleanupRecording() {
+        if (!recordingState) return null;
+        const pending = recordingState.sendResponse;
+
+        if (recordingState.lastHighlighted) {
+            recordingState.lastHighlighted.style.outline = recordingState.lastHighlighted.__xmlff_orig_outline || "";
+            recordingState.lastHighlighted.style.outlineOffset = recordingState.lastHighlighted.__xmlff_orig_offset || "";
+            delete recordingState.lastHighlighted.__xmlff_orig_outline;
+            delete recordingState.lastHighlighted.__xmlff_orig_offset;
+        }
+
+        document.removeEventListener("mousemove", recordingState.mousemoveHandler, true);
+        document.removeEventListener("click", recordingState.clickHandler, true);
+        document.removeEventListener("keydown", recordingState.keydownHandler, true);
+
+        if (recordingState.timeout) clearTimeout(recordingState.timeout);
+        if (recordingState.overlay && recordingState.overlay.parentNode) {
+            recordingState.overlay.parentNode.removeChild(recordingState.overlay);
+        }
+
+        recordingState = null;
+        return pending;
+    }
+
+    function startRecordingMode(type, sendResponse) {
+        if (recordingState) cleanupRecording();
+
+        const { overlay, cancelBtn } = createRecordingOverlay(type);
+
+        recordingState = {
+            type,
+            overlay,
+            sendResponse,
+            lastHighlighted: null,
+            mousemoveHandler: null,
+            clickHandler: null,
+            keydownHandler: null,
+            timeout: null,
+        };
+
+        recordingState.mousemoveHandler = function (e) {
+            const el = document.elementFromPoint(e.clientX, e.clientY);
+            if (!el || el === overlay || overlay.contains(el)) return;
+
+            if (recordingState.lastHighlighted && recordingState.lastHighlighted !== el) {
+                recordingState.lastHighlighted.style.outline = recordingState.lastHighlighted.__xmlff_orig_outline || "";
+                recordingState.lastHighlighted.style.outlineOffset = recordingState.lastHighlighted.__xmlff_orig_offset || "";
+            }
+
+            if (el !== recordingState.lastHighlighted) {
+                el.__xmlff_orig_outline = el.style.outline;
+                el.__xmlff_orig_offset = el.style.outlineOffset;
+                el.style.outline = "3px solid #8e44ad";
+                el.style.outlineOffset = "2px";
+                recordingState.lastHighlighted = el;
+            }
+        };
+
+        recordingState.clickHandler = function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+
+            const el = document.elementFromPoint(e.clientX, e.clientY);
+            if (!el || el === overlay || overlay.contains(el)) return;
+
+            const selector = getButtonIdentifier(el);
+            const texts = getButtonText(el);
+            const text = texts.length > 0 ? texts[0] : el.tagName;
+
+            const pending = cleanupRecording();
+            if (pending) {
+                try { pending({ selector: selector, text: text }); } catch (_) { }
+            }
+        };
+
+        recordingState.keydownHandler = function (e) {
+            if (e.key === "Escape") {
+                e.preventDefault();
+                e.stopPropagation();
+                const pending = cleanupRecording();
+                if (pending) {
+                    try { pending({ cancelled: true }); } catch (_) { }
+                }
+            }
+        };
+
+        cancelBtn.addEventListener("click", function () {
+            const pending = cleanupRecording();
+            if (pending) {
+                try { pending({ cancelled: true }); } catch (_) { }
+            }
+        });
+
+        document.addEventListener("mousemove", recordingState.mousemoveHandler, true);
+        document.addEventListener("click", recordingState.clickHandler, true);
+        document.addEventListener("keydown", recordingState.keydownHandler, true);
+
+        // Timeout de seguranca: 60s
+        recordingState.timeout = setTimeout(function () {
+            const pending = cleanupRecording();
+            if (pending) {
+                try { pending({ cancelled: true }); } catch (_) { }
+            }
+        }, 60000);
+    }
+
     // ─── Message listener ───
 
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+        if (message.action === "ping") {
+            sendResponse({ pong: true });
+            return true;
+        }
+
         if (message.action === "fillForm") {
             const data = message.data;
             const fields = collectFields();
@@ -610,6 +987,59 @@
                     placeholder: f.placeholder,
                 })),
             });
+            return true;
+        }
+
+        if (message.action === "startRecording") {
+            startRecordingMode(message.type, sendResponse);
+            return true;
+        }
+
+        if (message.action === "cancelRecording") {
+            const pending = cleanupRecording();
+            if (pending) {
+                try { pending({ cancelled: true }); } catch (_) { }
+            }
+            sendResponse({ ok: true });
+            return true;
+        }
+
+        if (message.action === "detectButtons") {
+            const buttons = collectButtons();
+            const saveButtons = findButtonByTerms(buttons, SAVE_TERMS);
+            const newButtons = findButtonByTerms(buttons, NEW_TERMS);
+
+            sendResponse({
+                saveButtons: saveButtons.map(b => ({ text: b.text, id: b.id, selector: b.selector })),
+                newButtons: newButtons.map(b => ({ text: b.text, id: b.id, selector: b.selector })),
+            });
+            return true;
+        }
+
+        if (message.action === "clickElement") {
+            const { selector, type } = message;
+
+            let btn = null;
+            if (selector) {
+                btn = document.querySelector(selector);
+            }
+
+            // Fallback: auto-deteccao se nao encontrou pelo seletor
+            if (!btn) {
+                const terms = type === "save" ? SAVE_TERMS : NEW_TERMS;
+                const buttons = collectButtons();
+                const found = findButtonByTerms(buttons, terms);
+                if (found.length > 0) btn = found[0].element;
+            }
+
+            if (!btn) {
+                sendResponse({ success: false, error: "Botao nao encontrado na pagina." });
+                return true;
+            }
+
+            highlightElement(btn);
+            btn.click();
+            sendResponse({ success: true });
             return true;
         }
     });
